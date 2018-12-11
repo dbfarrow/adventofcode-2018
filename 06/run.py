@@ -1,6 +1,45 @@
 #!/usr/bin/env python
 
-testing = False
+import argparse
+from pwn import *
+
+########################################################################
+#
+# boilerplate script setup
+#
+# command line arguments
+CMDLINE = None 
+
+def parse_cmdline():
+	
+	parser = argparse.ArgumentParser(description="AdventOfCode 2018 - day 6")
+	parser.add_argument('-t', '--testing', action='store_true', default=False)
+	parser.add_argument('-v', '--verbose', action='store_true', default=False)
+	parser.add_argument('-p', '--part')
+	global CMDLINE 
+	CMDLINE = parser.parse_args()
+
+	context.log_level = 'debug' if CMDLINE.verbose else 'info'
+
+def get_input():
+
+	lines = []
+
+	filename = "./input" if not CMDLINE.testing else "./input-test"
+	with open(filename, "r") as infile:
+		lines = infile.readlines()
+
+	return lines
+
+def do_part(part):
+    if not CMDLINE.part or CMDLINE.part == part:
+        return True
+    else:
+        return False
+
+########################################################################
+#
+# Classes
 
 class Space:
 
@@ -13,19 +52,18 @@ class Space:
 
 		# load the points and determine the bounds of the space
 		# containing the points
-		filename = "./input" if not testing else "./input-test"
-		with open(filename, "r") as infile:
-			for ix, line in enumerate(infile):
-				p = Point(ix, line)
-				if p.x > self.maxX:
-					self.maxX = p.x
-				if p.y > self.maxY:
-					self.maxY = p.y
+		lines = get_input()
+		for ix in range(len(lines)):
+			p = Point(ix, lines[ix])
+			if p.x > self.maxX:
+				self.maxX = p.x
+			if p.y > self.maxY:
+				self.maxY = p.y
 
-				self.points.append(p)
+			self.points.append(p)
 
 		# initialize the space map
-		#print("bounds: [0, 0] -> [{}, {}]".format(self.maxX, self.maxY))
+		log.debug("bounds: [0, 0] -> [{}, {}]".format(self.maxX, self.maxY))
 		self.map = []
 		for i in range(self.maxY + 1):
 			self.map.append([ None for j in range(self.maxX + 1) ])
@@ -126,21 +164,57 @@ class Point:
 		return "[{}, {}]".format(self.x, self.y)
 
 
+
+########################################################################
+#
+# PART A
+
+def do_partA():
+
+	log.info("AdventOfCode 2018 - day 6 part A")
+
+	log.info("loading space")
+	s = Space()
+	log.debug(s)
+
+	log.info("calculating distances")
+	s.calc_distances()
+	log.debug(s)
+
+	log.info("excluding edge points")
+	s.exclude_edge_points()
+
+	log.info("searching for finite spaces")
+	finites = s.get_finite_spaces()
+
+	a = max(finites, key=lambda key: finites[key])
+	log.info("{} (size = {})".format(a.name, finites[a]))
+	log.success(finites[a])
+
+########################################################################
+#
+# PART B
+
+def do_partB():
+
+	log.info("AdventOfCode 2018 - day 6 part B")
+
+	s = Space()
+	log.debug(s)
+
+	d = 32 if CMDLINE.testing else 10000
+	size = s.calc_closest(d)
+	log.debug(s)
+	log.success(size)
+
+
 if __name__ == "__main__":
 
-	s = Space()
-	print s
-	s.calc_distances()
-	print s
-	s.exclude_edge_points()
-	finites = s.get_finite_spaces()
-	p = max(finites, key=lambda key: finites[key])
-	print "part A: {} (size = {})".format(p.name, finites[p])
+	parse_cmdline()
 
-	s = Space()
-	print s
-	d = 32 if testing else 10000
-	size = s.calc_closest(d)
-	print s
-	print "part B: {}".format(size)
+	if do_part('a'):
+		do_partA()
+
+	if do_part('b'):
+		do_partB()
 
