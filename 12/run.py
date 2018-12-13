@@ -16,6 +16,7 @@ def parse_cmdline():
 	parser.add_argument('-t', '--testing', action='store_true', default=False)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('-p', '--part')
+	parser.add_argument('-o', '--origin', type=int, default=7)
 	global CMDLINE 
 	CMDLINE = parser.parse_args()
 
@@ -43,37 +44,44 @@ def do_part(part):
 
 def parse_lines(lines):
 
-	initial_state = ".." + lines[0].rstrip().replace("initial state: ", "")
+	initial_state = ("." * CMDLINE.origin) + lines[0].rstrip().replace("initial state: ", "")
 	while(len(initial_state) < 44):
 		initial_state = initial_state + "."	
 
 	notes = {}
 	for i in range(2, len(lines)):
 		[pattern, outcome] = lines[i].rstrip().split(" => ")
-		outcome = pattern[:2] + outcome + pattern[3:]
-		log.debug("pattern = {}".format(pattern))
-		log.debug("outcome = {}".format(outcome))
+		#log.debug("pattern = {}".format(pattern))
+		#log.debug("outcome = {}".format(outcome))
 		notes[pattern] = outcome
 
 	return [ initial_state, notes ]
 	
 def calc_generation(current, notes):
 
-	nextgen = current
+	nextgen = [ '.' '.' ]
 
 	for i in range(len(current)):
+		matched = 0
 		for j, (pattern, outcome) in enumerate(notes.items()):
-			#log.debug("applying {}".format(pattern))
 			frag = current[i:i+len(pattern)]
 			if frag == pattern:
-				log.debug("current[{}] matches pattern {} ({})".format(i, j, pattern))
-				log.debug("    updating current[{}] to {}".format(i, outcome))
-				#nextgen[i+2] = outcome
-				nextgen = nextgen[0:i] + outcome + nextgen[i+5:]
-				log.debug(nextgen)
+				matched += 1
 
-	return nextgen
+		if matched > 1: 
+			raise Exception("too many patterns matched")
+		nextgen += outcome if matched == 1 else '.'
+
+	return "".join(nextgen)
 	
+def calc_score(gen):
+
+	score = 0
+	for i in range(len(gen)):
+		if gen[i] == '#':
+			score += (i -CMDLINE.origin)	
+
+	return score
 	
 
 ########################################################################
@@ -85,16 +93,15 @@ def do_partA():
 	log.info("AdventOfCode 2018 - day N part A")
 
 	[ curr, notes ] = parse_lines(get_input())
-	log.info("      0         1         2         3         4")
-	log.info(" 0: {}".format(curr))
+	log.debug("    {}0         1         2         3         4".format(" "*CMDLINE.origin))
+	log.debug(" 0: {}".format(curr))
 
-	for i in range(1, 20):
+	for i in range(1, 21):
 		curr = calc_generation(curr, notes)
-		log.info("{:2d}: {}".format(i, curr))
-		if i == 2:
-			break
+		log.debug("{:2d}: {}".format(i, curr))
 
-	log.failure("not implemented")
+	score = calc_score(curr)
+	log.success(score)
 
 ########################################################################
 #
