@@ -14,7 +14,7 @@ def parse_cmdline():
 	parser.add_argument('-t', '--testing', action='store_true', default=False)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('-p', '--part')
-	parser.add_argument('-b', '--base_duration', type=int, default=30)
+	parser.add_argument('-b', '--base_duration', type=int, default=60)
 	parser.add_argument('-w', '--workers', type=int, default=5)
 	global CMDLINE 
 	CMDLINE = parser.parse_args()
@@ -146,80 +146,83 @@ def do_partB(tasks):
 	log.info("starting candidates: {}".format([ n for n, t in candidates.items() ]))
 
 	# print the header of the debug table
-	debug_schedule(tick, workers, order, header=True)
+	debug_schedule(tick, workers, order)
 
-	while 1:
+	with log.progress("schedule") as p:
+		while 1:
 		
-		# for each candidate task to work on, find an idle worker
-		# to assign it to
-		for n, t in candidates.items():
-			if t.worker == None:
-				w = get_available_worker(workers)
-				if w:
-					log.debug("assigning {} to {}".format(t.name, w.name))
-					w.task = t
-					t.worker = w
-					w.start_time = tick
-					order += t.name
-				else:
-					break
-		
-		# We are done when there are no more candidates
-		if len(candidates) == 0:
-			break
-
-		log.debug("free_workers: {}".format([ n for n in free_workers.keys() ]))
-		log.debug("busy_workers: {}".format([ n for n in busy_workers.keys() ]))
-
-		debug_schedule(tick, workers, order)
-
-		# check to see if any tasks are complete
-		# For completed tasks:
-		#	1. mark the task complete
-		#	2. remove the task from the list of candidate steps
-		#	3. add the task's next steps to the list of candidate steps
-		#	4. clear the worker's assigned task
-		#	5. return the worker to the work pool
-		for n, w in busy_workers.items():
-			w = busy_workers[n]
-			log.debug("worker: {}".format(w.name))
-			if w.task:
-				if (tick - w.start_time + 1) >= w.task.duration:
-					log.debug("task {} completed".format(w.task.name))
-
-					# 1
-					w.task.complete = True
-
-					# 2
-					log.debug("removing {} from candidate list".format(w.task.name))
-					del candidates[w.task.name]
-					log.debug("  --> candidates: {}".format([ c for c in candidates.keys() ]))
-
-					#3
-					for nt in w.task.nexts:
-						log.debug("adding {} to candidate list from {} task next list".format(nt.name, w.task.name))
-						if nt.prereqs_complete() and not nt.complete:
-							log.debug("adding {} to candidates".format(nt.name))
-							candidates[nt.name] = nt
-							log.debug("  --> candidates: {}".format([ c for c in candidates.keys() ]))
-						else:
-							log.debug("can't add {} because prereqs={} or complete={}".format(nt.name, nt.prereqs_complete(), nt.complete))
-							log.debug("  {}".format([pn.name for pn in nt.prereqs]))
-
-					# 4
-					free_workers[w.name] = w		
-
-					# 5 
-					del busy_workers[w.name]
-					w.task = None
-
-				else:
-					log.debug("{} has {} seconds left on {}".format(w.name, w.task.duration - (tick - w.start_time), w.task.name))
-		
-
-		#time.sleep(1)
-		tick += 1
-
+			# for each candidate task to work on, find an idle worker
+			# to assign it to
+			for n, t in candidates.items():
+				if t.worker == None:
+					w = get_available_worker(workers)
+					if w:
+						log.debug("assigning {} to {}".format(t.name, w.name))
+						w.task = t
+						t.worker = w
+						w.start_time = tick
+						order += t.name
+					else:
+						break
+			
+			# We are done when there are no more candidates
+			if len(candidates) == 0:
+				break
+	
+			log.debug("free_workers: {}".format([ n for n in free_workers.keys() ]))
+			log.debug("busy_workers: {}".format([ n for n in busy_workers.keys() ]))
+	
+			debug_schedule(tick, workers, order, p)
+	
+			# check to see if any tasks are complete
+			# For completed tasks:
+			#	1. mark the task complete
+			#	2. remove the task from the list of candidate steps
+			#	3. add the task's next steps to the list of candidate steps
+			#	4. clear the worker's assigned task
+			#	5. return the worker to the work pool
+			for n, w in busy_workers.items():
+				w = busy_workers[n]
+				log.debug("worker: {}".format(w.name))
+				if w.task:
+					if (tick - w.start_time + 1) >= w.task.duration:
+						log.debug("task {} completed".format(w.task.name))
+	
+						# 1
+						w.task.complete = True
+	
+						# 2
+						log.debug("removing {} from candidate list".format(w.task.name))
+						del candidates[w.task.name]
+						log.debug("  --> candidates: {}".format([ c for c in candidates.keys() ]))
+	
+						#3
+						for nt in w.task.nexts:
+							log.debug("adding {} to candidate list from {} task next list".format(nt.name, w.task.name))
+							if nt.prereqs_complete() and not nt.complete:
+								log.debug("adding {} to candidates".format(nt.name))
+								candidates[nt.name] = nt
+								log.debug("  --> candidates: {}".format([ c for c in candidates.keys() ]))
+							else:
+								log.debug("can't add {} because prereqs={} or complete={}".format(nt.name, nt.prereqs_complete(), nt.complete))
+								log.debug("  {}".format([pn.name for pn in nt.prereqs]))
+	
+						# 4
+						free_workers[w.name] = w		
+	
+						# 5 
+						del busy_workers[w.name]
+						w.task = None
+	
+					else:
+						log.debug("{} has {} seconds left on {}".format(w.name, w.task.duration - (tick - w.start_time), w.task.name))
+			
+			# ok... this is gratuitous. but if I don't slow things down here you
+			# won't see the awesome progress message i cooked up for y'all. so
+			# chill and watch the work you aren't having to do yourself.
+			time.sleep(0.01)
+			tick += 1
+	
 	log.success(tick)
 
 
@@ -245,15 +248,16 @@ def get_available_worker(workers):
 		busy_workers[w.name] = w
 		return w
 
-def debug_schedule(tick, workers, order, header=False):
+def debug_schedule(tick, workers, order, p=None):
 
 	msg = ""
-	if header:
+	if not p:
 		msg += "Second  "
 		for i in range(CMDLINE.workers):
 			name = "Worker {}".format(i+1)
 			msg += name + "  "
 		msg += " Done"
+		log.info(msg)
 	else:
 		msg += "{:4d}     ".format(tick)
 		for i in range(CMDLINE.workers):
@@ -264,22 +268,17 @@ def debug_schedule(tick, workers, order, header=False):
 
 			msg += "  {:8s}".format(t)
 		msg += "{}".format(order)
-	
-	log.info(msg)
+		p.status(msg)
 
 
 if __name__ == "__main__":
 
 	parse_cmdline()
 
-	tasks = load_tasks()
-	
-	for n, t in tasks.items():
-		log.debug("before {} comes {}".format(n, [ p.name for p in t.prereqs ]))
-		log.debug("after  {} comes {}\n".format(n, [ p.name for p in t.nexts ]))
-
 	if CMDLINE.part == None or CMDLINE.part == 'a':
+		tasks = load_tasks()
 		do_partA(tasks)
 	if CMDLINE.part == None or CMDLINE.part == 'b':
+		tasks = load_tasks()
 		do_partB(tasks)
 

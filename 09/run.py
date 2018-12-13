@@ -18,6 +18,7 @@ def parse_cmdline():
 	parser.add_argument('-t', '--testing', action='store_true', default=False)
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('-p', '--part')
+	parser.add_argument('-r', '--rerun', action="store_true", default=False)
 	global CMDLINE 
 	CMDLINE = parser.parse_args()
 
@@ -194,13 +195,12 @@ def do_partA():
 # PART B
 #	this part takes *forever* to run...
 # 
-# [dfarrow@fatsec-aoc: /home/dfarrow/work/09] % time ./09.py -p b
-# [*] AdventOfCode 2018 - day 9 part B
-# [*] Playing game with [404 players], [7195200 marbles]
-# [+] playing marbles:: Done
-# [+] 3664283666
-# ./09.py -p b  7907.53s user 60.67s system 100% cpu 2:11:40.89 total
-# [dfarrow@fatsec-aoc: /home/dfarrow/work/09] %
+#[dfarrow@fatsec-aoc: /home/dfarrow/work/09] % time ./09.py -p b
+#[*] AdventOfCode 2018 - day 9 part B
+#[*] Playing game with [404 players], [7185200 marbles]
+#[+] playing marbles:: Done
+#[+] 3653994575
+#./09.py -p b  7748.20s user 58.12s system 100% cpu 2:08:54.95 total
 
 def do_partB():
 
@@ -209,7 +209,12 @@ def do_partB():
 	game_specs = get_input()
 	spec = game_specs[0]
 
-	winner = play_game(spec['num_players'], spec['num_marbles'] * 100)
+	winner = 0
+	if (CMDLINE.rerun):
+		winner = play_game(spec['num_players'], spec['num_marbles'] * 100)
+	else:
+		winner = 3653994575
+
 	log.success(winner)
 
 
