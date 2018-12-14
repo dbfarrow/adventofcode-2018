@@ -17,7 +17,9 @@ def parse_cmdline():
 	parser.add_argument('-v', '--verbose', action='store_true', default=False)
 	parser.add_argument('--show_maps', action='store_true', default=False)
 	parser.add_argument('-p', '--part')
+	parser.add_argument('--step', action='store_true', default=False)
 	parser.add_argument('--max_steps', type=int, default=-1)
+	parser.add_argument('--delay', type=int, default=0)
 	global CMDLINE 
 	CMDLINE = parser.parse_args()
 
@@ -35,14 +37,14 @@ def get_input():
 	
 	# find the carts, note their positions, and remove
 	# them from the track
-	carts = []
+	carts = {}
 	for y in range(len(tracks.grid)):
 		row = tracks.grid[y]
 		for x in range(len(row)):
 			c = chr(row[x])
 			cart = None
 			if c == '>' or c == '<' or c == '^' or c == 'v':
-				carts.append(Cart(x, y, c))
+				carts[(y,x)] = (Cart(x, y, c))
 
 	tracks.remove_carts()
 	return [ tracks, carts ]
@@ -100,7 +102,7 @@ class Cart:
 
 	def __repr__(self):
 
-		return "cart travelling {} at ({}, {})".format(self.c, self.x, self.y)
+		return "cart travelling {} at ({:3d}, {:3d})".format(self.c, self.x, self.y)
 
 	def move(self, tracks):
 
@@ -147,50 +149,62 @@ class Cart:
 
 	def turn(self):
 		
-		dir_rules = [ 
-			{	# turn left
-				'>': '^',
-				'^': '<',
-				'<': 'v',
-				'v': '>'
-			},	# go straight
-			{
-				'>': '>',
-				'^': '^',
-				'<': '<',
-				'v': 'v'
-			},	
-			{	# turn right
-				'>': 'v',
-				'^': '>',
-				'<': '^',
-				'v': '<'
-			},	
-		]
-		
-		self.c = dir_rules[self.num_turns % 3][self.c]
+		dirs = "<^>v"
+
+		old_dir = self.c
+		ix = dirs.find(old_dir)
+		ix += ((self.num_turns % 3) - 1)
 		self.num_turns += 1
+		if ix < 0:
+			ix = len(dirs)-1
+		if ix == len(dirs):
+			ix = 0
+		self.c = dirs[ix]
 
 
 __map = None
 
-def print_map(tracks, carts):
+def print_locations(tracks, carts, curr):
 
 	global __map
-	if __map == None:
-		__map = [ log.progress("") for i in range(len(tracks.grid)) ]
 
-	locs = { (c.x, c.y) : c for c in carts }
+	if CMDLINE.show_maps and len(tracks.grid) < 10:
+		if __map == None:
+			__map = [ log.progress("") for i in range(len(tracks.grid)) ]
 
-	for y in range(len(tracks.grid)):
-		m = ""
-		row = tracks.grid[y]
-		for x in range(len(row)):
-			if (x,y) in locs:
-				m += locs[(x,y)].c
-			else:
-				m += chr(row[x])
-		__map[y].status(m)
+		locs = { (c.x, c.y) : c for c in carts.values() }
+
+		for y in range(len(tracks.grid)):
+			m = ""
+			row = tracks.grid[y]
+			for x in range(len(row)):
+				if (x,y) in locs:
+					m += locs[(x,y)].c
+				else:
+					m += chr(row[x])
+			__map[y].status(m)
+
+	else:
+		
+		if __map == None:
+			__map = [ log.progress("cart[{}]".format(i)) for i, c in enumerate(carts.values()) ]
+ 
+		for i, c in enumerate(carts.values()):
+			m = str(c)
+			if c == curr:
+				m += " **"
+			__map[i].status(m)
+
+	if CMDLINE.step:
+		a = raw_input("hit enter to continue (or q to quit): ")
+		if a.rstrip() == "q":
+			log.failure("quiting at user request")
+			exit(-1)
+		else:
+			sys.stdout.write("\033[F")
+	else:
+		if CMDLINE.delay > 0:
+			sleep(CMDLINE.delay)
 
 ########################################################################
 #
@@ -202,30 +216,33 @@ def do_partA():
 
 	# read in the map
 	[ tracks, carts ] = get_input()
-	if CMDLINE.show_maps:
-		print_map(tracks, carts)
+	print_locations(tracks, carts, None)
 	
 	step = 0
 	with log.progress("") as t:
 		while 1:
 
-			for c in carts:
+			# get a list of carts sorted by Y then X position
+			clist = sorted(carts.keys())
+			for i, p in enumerate(clist):
+				t.status("t = {}.{:02d}".format(step, i))
+				c = carts[p]
 				c.move(tracks)
-				if CMDLINE.show_maps:
-					print_map(tracks, carts)
+				print_locations(tracks, carts, c)
 
 				# check for collisions
 				positions = {}
-				for c in carts:
+				for c in carts.values():
 					pos = (c.x, c.y)
 					if pos in positions:
 						log.info("carts collided at t={}".format(step))
+						c.c = 'X'
+						print_locations(tracks, carts, c)
 						log.success(pos)
 						return
 					else:
 						positions[pos] = c
 	
-			t.status("t = {}".format(step))
 			step += 1
 
 			# check the max_steps command line parameter so we can 
@@ -233,8 +250,6 @@ def do_partA():
 			if CMDLINE.max_steps > 0 and step >= CMDLINE.max_steps:
 				break
 
-			if CMDLINE.show_maps:
-				time.sleep(0.25)
 
 	log.fail("carts never collided")
 
