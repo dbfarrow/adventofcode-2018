@@ -19,7 +19,7 @@ def parse_cmdline():
 	parser.add_argument('-p', '--part')
 	parser.add_argument('--step', action='store_true', default=False)
 	parser.add_argument('--max_steps', type=int, default=-1)
-	parser.add_argument('--delay', type=int, default=0)
+	parser.add_argument('--delay', type=float, default=0)
 	global CMDLINE 
 	CMDLINE = parser.parse_args()
 
@@ -37,14 +37,14 @@ def get_input():
 	
 	# find the carts, note their positions, and remove
 	# them from the track
-	carts = {}
+	carts = []
 	for y in range(len(tracks.grid)):
 		row = tracks.grid[y]
 		for x in range(len(row)):
 			c = chr(row[x])
 			cart = None
 			if c == '>' or c == '<' or c == '^' or c == 'v':
-				carts[(y,x)] = (Cart(x, y, c))
+				carts.append(Cart(x, y, c))
 
 	tracks.remove_carts()
 	return [ tracks, carts ]
@@ -71,6 +71,7 @@ class Track:
 		self.max_y = len(self.grid)
 		self.max_x = len(self.grid[0])
 		self.collision = None
+		self.__map = None
 
 	def get_cell(self, x, y):
 		if x < 0 or x > self.max_x:
@@ -90,6 +91,66 @@ class Track:
 					self.grid[y][x] = '-'
 				elif c == '^' or c == 'v':
 					self.grid[y][x] = '|'
+	
+	def clear_crash(self, at, carts):
+
+		count = len(carts)
+		for i, c in enumerate(carts):
+			if c == None:
+				#self.__map[i].status(" ==X== ")
+				count -= 1
+				continue
+			if at == (c.x, c.y):
+				#self.__map[i].status(" ==X== ")
+				carts[i] = None
+				log.info("removed cart[{}]".format(i))
+				count -= 1
+
+		return count
+
+
+	def print_locations(self, carts, curr):
+
+		return
+
+		if CMDLINE.show_maps and len(self.grid) < 10:
+			if self.__map == None:
+				self.__map = [ log.progress("") for i in range(len(self.grid)) ]
+
+			locs = { (c.x, c.y) : c for c in carts }
+
+			for y in range(len(self.grid)):
+				m = ""
+				row = self.grid[y]
+				for x in range(len(row)):
+					if (x,y) in locs:
+						m += locs[(x,y)].c
+					else:
+						m += chr(row[x])
+				self.__map[y].status(m)
+
+		else:
+		
+			if self.__map == None:
+				self.__map = [ log.progress("cart[{}]".format(i)) for i, c in enumerate(carts) ]
+		
+			for i, c in enumerate(carts):
+				m = str(c)
+				if c == curr:
+					m += " **"
+				self.__map[i].status(m)
+	
+		if CMDLINE.step:
+			a = raw_input("hit enter to continue (or q to quit): ")
+			if a.rstrip() == "q":
+				log.failure("quiting at user request")
+				exit(-1)
+			else:
+				sys.stdout.write("\033[F")
+		else:
+			if CMDLINE.delay > 0:
+				sleep(CMDLINE.delay)
+
 				
 class Cart:
 	
@@ -161,50 +222,11 @@ class Cart:
 			ix = 0
 		self.c = dirs[ix]
 
-
-__map = None
-
-def print_locations(tracks, carts, curr):
-
-	global __map
-
-	if CMDLINE.show_maps and len(tracks.grid) < 10:
-		if __map == None:
-			__map = [ log.progress("") for i in range(len(tracks.grid)) ]
-
-		locs = { (c.x, c.y) : c for c in carts.values() }
-
-		for y in range(len(tracks.grid)):
-			m = ""
-			row = tracks.grid[y]
-			for x in range(len(row)):
-				if (x,y) in locs:
-					m += locs[(x,y)].c
-				else:
-					m += chr(row[x])
-			__map[y].status(m)
-
-	else:
-		
-		if __map == None:
-			__map = [ log.progress("cart[{}]".format(i)) for i, c in enumerate(carts.values()) ]
- 
-		for i, c in enumerate(carts.values()):
-			m = str(c)
-			if c == curr:
-				m += " **"
-			__map[i].status(m)
-
-	if CMDLINE.step:
-		a = raw_input("hit enter to continue (or q to quit): ")
-		if a.rstrip() == "q":
-			log.failure("quiting at user request")
-			exit(-1)
-		else:
-			sys.stdout.write("\033[F")
-	else:
-		if CMDLINE.delay > 0:
-			sleep(CMDLINE.delay)
+def print_winner(tracks, carts):
+	# find the last cart and move it once
+	for c in carts:
+		if c != None:
+			log.success("{},{}".format(c.x, c.y))
 
 ########################################################################
 #
@@ -216,33 +238,31 @@ def do_partA():
 
 	# read in the map
 	[ tracks, carts ] = get_input()
-	print_locations(tracks, carts, None)
+	tracks.print_locations(carts, None)
 	
 	step = 0
 	with log.progress("") as t:
 		while 1:
 
 			# get a list of carts sorted by Y then X position
-			clist = sorted(carts.keys())
-			for i, p in enumerate(clist):
+			#old_positions = sorted(carts.keys())
+			new_positions = []
+			for i, c in enumerate(carts):
 				t.status("t = {}.{:02d}".format(step, i))
-				c = carts[p]
 				c.move(tracks)
-				print_locations(tracks, carts, c)
+				tracks.print_locations(carts, c)
 
 				# check for collisions
-				positions = {}
-				for c in carts.values():
-					pos = (c.x, c.y)
-					if pos in positions:
-						log.info("carts collided at t={}".format(step))
-						c.c = 'X'
-						print_locations(tracks, carts, c)
-						log.success(pos)
-						return
-					else:
-						positions[pos] = c
-	
+				pos = (c.x, c.y)
+				if pos in new_positions:
+					log.info("carts collided at t={}".format(step))
+					c.c = 'X'
+					tracks.print_locations(carts, c)
+					log.success(pos)
+					return
+				else:	
+					new_positions.append((c.x, c.y))
+
 			step += 1
 
 			# check the max_steps command line parameter so we can 
@@ -260,7 +280,54 @@ def do_partA():
 def do_partB():
 
 	log.info("AdventOfCode 2018 - day 13 part B")
-	log.failure("not implemented")
+
+	# read in the map
+	[ tracks, carts ] = get_input()
+	tracks.print_locations(carts, None)
+	
+	step = 0
+	with log.progress("") as t:
+		while 1:
+
+			# get a list of carts sorted by Y then X position
+			#old_positions = sorted(carts.keys())
+			new_positions = []
+			for i, c in enumerate(carts):
+				if c == None:
+					continue
+
+				if step % 1000 == 0:
+					t.status("t = {}.{:02d}".format(step, i))
+				c.move(tracks)
+				tracks.print_locations(carts, c)
+
+				# check for collisions
+				pos = (c.x, c.y)
+				if pos in new_positions:
+					log.info("carts collided at t={}".format(step))
+					c.c = 'X'
+					tracks.print_locations(carts, c)
+					remaining = tracks.clear_crash(pos, carts)
+					if remaining == 1:
+						log.success("that was the last crash")	
+						print_winner(tracks, carts)
+						return
+					elif remaining < 1:
+						log.failure("no cars left on track")
+						return
+					else:
+						continue
+				else:	
+					new_positions.append((c.x, c.y))
+
+			step += 1
+
+			# check the max_steps command line parameter so we can 
+			# bail if things go on too long
+			if CMDLINE.max_steps > 0 and step >= CMDLINE.max_steps:
+				break
+
+	log.failure("something failed")
 
 
 if __name__ == "__main__":
