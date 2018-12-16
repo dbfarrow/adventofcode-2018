@@ -69,8 +69,8 @@ def make_new_recipe(elves, scores):
 	# calculate the sum of the scores and append
 	# each digit to the recipe list	
 	new_recipe = str(sum(recipes))
-	log.debug("elves      : {}".format(elves))
-	log.debug("new recipes: {}".format(new_recipe))
+	#log.debug("elves      : {}".format(elves))
+	#log.debug("new recipes: {}".format(new_recipe))
 	for d in new_recipe:
 		scores.append(int(d))
 
@@ -83,7 +83,7 @@ def make_new_recipe(elves, scores):
 		end = start + spaces
 		if end >= len(scores):
 			end %= len(scores)
-		log.debug("e[{}]={} starts at {}, moves {} spaces, and ends at {}".format(i, score, start, spaces, end))
+		#log.debug("e[{}]={} starts at {}, moves {} spaces, and ends at {}".format(i, score, start, spaces, end))
 		elves[i] = end
 
 def print_step(elves, scores, stepnum):
@@ -217,11 +217,8 @@ def do_partB():
 							found = True
 						break
 					
-					stats[scores[seq_num] % 10] += 1
-
-					if seq_num % 10000 == 0:
-						pcts = map(lambda x: "{:02d}".format((x * 100) / seq_num), stats)
-						lp.status(str("{}: current pattern: {}; {}".format(seq_num, seq, pcts)))
+					if seq_num % 1000000 == 0:
+						lp.status(str("{}: current pattern: {}".format(seq_num, seq)))
 
 				step += 1
 
