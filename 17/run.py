@@ -69,6 +69,8 @@ def do_partA():
 	
 	log.success(res.measure_water())
 
+	res.render(force=True)
+
 ########################################################################
 #
 # PART B

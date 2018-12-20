@@ -70,7 +70,7 @@ class Reservoir:
 			(x, y) = self.positions[s] if s in self.positions else s
 			self.drip_count += 1
 
-			log.debug("drip_count: {}, pos: {}".format(self.drip_count, (x, y)))
+			#log.debug("drip_count: {}, pos: {}".format(self.drip_count, (x, y)))
 
 			if y >= self.depth:
 				for j, js in enumerate(self.sources):
@@ -86,10 +86,7 @@ class Reservoir:
 				y += 1
 			if spot in '|':
 				if (x, y) != s:
-					del self.sources[ix]
-					log.info("ix = {}".format(ix))
-					log.info("deleting # source at {}".format(self.sources[ix]))
-					#raise Exception("found drip at n={}: {},{}".format(self.drip_count, x, y))
+					self.delete_source(ix, s)
 				y += 1
 			elif spot == '.':
 				self.slice[y][x] = '|'
@@ -97,18 +94,13 @@ class Reservoir:
 			elif spot == '#':
 				y -= 1
 				if self.flow(x, y):
-					log.debug("ix = {}".format(ix))
-					log.debug("deleting # source at {}".format(self.sources[ix]))
-					del self.sources[ix]
-					self.progress[SOURCES].status(str(self.sources))
+					self.delete_source(ix, s)
 			elif spot == '~':
 				y -= 1
 				if self.flow(x, y):
-					log.debug("ix = {}".format(ix))
-					log.debug("deleting source at {}".format(self.sources[ix]))
-					del self.sources[ix]
+					self.delete_source(ix, s)
 
-		log.debug("updating position to: {}".format((x, y)))
+		#log.debug("updating position to: {}".format((x, y)))
 
 		self.positions[s] = (x, y)
 
@@ -122,16 +114,14 @@ class Reservoir:
 		while (x - min_x > 0) and self.slice[y][x - min_x] != '#' and not min_overflow:
 			if self.slice[y+1][x - min_x] == '.':
 				min_overflow = x - min_x
-				self.sources.append((min_overflow, y))
-				self.progress[SOURCES].status(str(self.sources))
+				self.add_source((min_overflow, y))
 				#log.debug("new left spring at {},{}".format(min_overflow, y))
 			min_x += 1
 
 		while (x + max_x < self.width) and self.slice[y][x + max_x] != '#' and not max_overflow:
 			if self.slice[y+1][x + max_x] == '.':
 				max_overflow = max_x
-				self.sources.append((x + max_overflow, y))
-				self.progress[SOURCES].status(str(self.sources))
+				self.add_source((x + max_overflow, y))
 				#log.debug("new right spring at {},{}".format(x + max_overflow, y))
 			max_x += 1
 
@@ -144,6 +134,33 @@ class Reservoir:
 
 		return overflowing
 	
+	def add_source(self, pos):
+
+		if pos in self.sources:
+			log.info("source {} exists".format(pos))
+			return
+
+		self.sources.append(pos)
+		self.progress[SOURCES].status(str(self.sources))
+
+
+	def delete_source(self, ix, s):
+
+		try:
+			log.debug("ix = {}".format(ix))
+			log.debug("deleting # source at {}".format(self.sources[ix]))
+			log.debug("sources: {}".format(self.sources))
+			for i, src in enumerate(self.sources):
+				if src == s:
+					del self.sources[i]
+			self.progress[SOURCES].status(str(self.sources))
+		
+		except:
+			log.info("error deleting source[{}] from list of {} sources".format(ix, len(self.sources)))
+			log.info(self.sources)
+			log.info(s)
+			exit(-1)
+
 	def measure_water(self):
 
 		water = 0
@@ -154,16 +171,17 @@ class Reservoir:
 
 		return water
 	
-	def render(self):
+	def render(self, force=False):
 
 		self.progress[DRIP_COUNT].status(str(self.drip_count))
 		self.progress[SOURCES].status(str(self.sources))
 
-		if self.depth >= 20:
-			return
-
-		for y, s in enumerate(self.slice):
-			self.screen[y].status("".join(self.slice[y]))
+		if self.depth <= 20:
+			for y, s in enumerate(self.slice):
+				self.screen[y].status("".join(self.slice[y]))
+		elif force:
+			for y, s in enumerate(self.slice):
+				log.info("".join(self.slice[y]))
 
 class Side:
 
