@@ -36,15 +36,17 @@ class Reservoir:
 	def calc_dims(self):
 
 		max_x = max_y = 0
-		min_x = 0xffffffff
+		min_x = min_y = 0xffffffff
 
 		for s in self.sides:
 			min_x = s.min_x if s.min_x < min_x else min_x
+			min_y = s.min_y if s.min_y < min_y else min_y
 			max_x = s.max_x if s.max_x > max_x else max_x
 			max_y = s.max_y if s.max_y > max_y else max_y
 
 		self.min_x = min_x - MARGIN
 		self.min_y = 0
+		self.highest = min_y
 		self.max_x = max_x - MARGIN
 		self.max_y = max_y
 		self.width = max_x - min_x + (2 * MARGIN)
@@ -161,14 +163,19 @@ class Reservoir:
 			log.info(s)
 			exit(-1)
 
-	def measure_water(self):
+	def measure_water(self, withspills = True):
 
 		water = 0
 		for y, row in enumerate(self.slice):
 			for x, cell in enumerate(row):
-				if self.slice[y][x] in '~|' and y <= self.max_y:
-					water += 1
+				if withspills:
+					if self.slice[y][x] in '~|' and y <= self.max_y:
+						water += 1
+				else:
+					if self.slice[y][x] in '~' and y <= self.max_y:
+						water += 1
 
+		water -= (self.highest - 1)
 		return water
 	
 	def render(self, force=False):

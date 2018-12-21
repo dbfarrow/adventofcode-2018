@@ -52,7 +52,7 @@ def do_part(part):
 #
 # PART A
 
-def do_partA():
+def do_partAB():
 
 	log.info("AdventOfCode 2018 - day 17 part A")
 
@@ -67,26 +67,13 @@ def do_partA():
 		if CMDLINE.testing:
 			time.sleep(0.1)
 	
-	log.success(res.measure_water())
+	log.success(res.measure_water(withspills=True))
+	log.success(res.measure_water(withspills=False))
 
-	res.render(force=True)
-
-########################################################################
-#
-# PART B
-
-def do_partB():
-
-	log.info("AdventOfCode 2018 - day 17 part B")
-	log.failure("not implemented")
-
+	#res.render(force=True)
 
 if __name__ == "__main__":
 
 	parse_cmdline()
+	do_partAB()
 
-	if do_part('a'):
-		do_partA()
-
-	if do_part('b'):
-		do_partB()
