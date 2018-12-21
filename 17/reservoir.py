@@ -165,18 +165,23 @@ class Reservoir:
 
 	def measure_water(self, withspills = True):
 
-		water = 0
+		drip = 0
+		standing = 0
 		for y, row in enumerate(self.slice):
 			for x, cell in enumerate(row):
-				if withspills:
-					if self.slice[y][x] in '~|' and y <= self.max_y:
-						water += 1
-				else:
-					if self.slice[y][x] in '~' and y <= self.max_y:
-						water += 1
+				if y > self.max_y:
+					continue
+				if self.slice[y][x] == '|':
+						drip += 1
+				elif self.slice[y][x] == '~':
+						standing += 1
 
-		water -= (self.highest - 1)
-		return water
+		drip -= (self.highest - 1)
+
+		log.info("drips   : {}".format(drip))
+		log.info("standing: {}".format(standing))
+
+		return (standing + drip) if withspills else standing
 	
 	def render(self, force=False):
 
