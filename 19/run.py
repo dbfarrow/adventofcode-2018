@@ -53,16 +53,24 @@ def log_state(ip, before, instr, after):
 	if __progress == None:
 		__progress = log.progress("")
 
-	bstr = ",".join(map(lambda x: "{:4d} ".format(x), before))
-	astr = ",".join(map(lambda x: "{:4d} ".format(x), after))
-	__progress.status("ip={:2d}   [{}]   {}   [ {} ]".format(ip, bstr, instr, astr))
+	bstr = ",".join(map(lambda x: "{:8d} ".format(x), before))
+	astr = ",".join(map(lambda x: "{:8d} ".format(x), after))
+	__progress.status("ip={:2d}   [{}]   {:12s}   [ {} ]".format(ip, bstr, instr, astr))
 
-def run_program(starting_state):
+
+########################################################################
+#
+# PART A
+
+def do_partA():
+
+	log.info("AdventOfCode 2018 - day 19 part A")
 
 	lines = get_input('a')
 
+	# initialize the CPU
 	cpu = CPU()
-	cpu.reg = [ s for s in starting_state ]
+	cpu.reg = [ 0 for i in range(6) ]
 	
 	# get the mapping of IP to register
 	l = lines[0]
@@ -75,6 +83,9 @@ def run_program(starting_state):
 		log.info("IP mapped to register: {}".format(cpu.rip))
 	
 	steps = 0
+	first = True
+	target = 0
+	prog_throttle = 0
 	while cpu.ip < len(lines):
 
 		l = lines[cpu.ip]
@@ -85,24 +96,21 @@ def run_program(starting_state):
 		ip_before = cpu.ip
 		reg_before = [ r for r in cpu.reg ]
 		cpu.do(instr, args)
-		#if ((steps - 13) % 1030) == 0:
-			#log_state(ip_before, reg_before, l, cpu.reg)
+
+		if cpu.ip == 2 and first:
+			first = False
+			target = cpu.reg[2]
+			log.info("factoring: {}".format(cpu.reg[2]))
+
+		if cpu.ip == 3:
+			if prog_throttle % target == 0:
+				log_state(ip_before, reg_before, l, cpu.reg)
+			prog_throttle += 1
 				
 		steps += 1
-		#if steps > ((steps - 13) % 1030:
-			#raise Exception("loopy!")
 
+	log.info("steps = {}".format(steps))
 	log.success(cpu.reg[0])
-
-
-########################################################################
-#
-# PART A
-
-def do_partA():
-
-	log.info("AdventOfCode 2018 - day 19 part A")
-	run_program([ 0 for i in range(6) ])
 
 ########################################################################
 #
@@ -113,8 +121,53 @@ def do_partB():
 	log.info("AdventOfCode 2018 - day 19 part B")
 
 	## run the same program but with a different initial state
-	initial_state = [ 1, 0, 0, 0, 0, 0 ]
-	run_program(initial_state)
+	lines = get_input('a')
+
+	# initialize the CPU
+	cpu = CPU()
+	cpu.reg = [ 0 for i in range(6) ]
+	cpu.reg = [ 1, 0, 0, 0, 0, 0 ]
+	
+	# get the mapping of IP to register
+	l = lines[0]
+	del lines[0]
+	[ instr, rip ] = l.split(" ")
+	if instr != "#ip":
+		raise Exception ("malformed first line: {}".format(l))
+	else:
+		cpu.rip = int(rip)
+		log.info("IP mapped to register: {}".format(cpu.rip))
+	
+	steps = 0
+	first = True
+	target = None
+	prog_throttle = 0
+	while cpu.ip < len(lines) and target == None:
+
+		l = lines[cpu.ip]
+		parts = l.split(" ")
+		instr = parts[0]
+		args = parts[1:]
+
+		ip_before = cpu.ip
+		reg_before = [ r for r in cpu.reg ]
+		cpu.do(instr, args)
+
+		if cpu.ip == 2 and first:
+			first = False
+			target = cpu.reg[2]
+			
+	log.info("factoring: {}".format(cpu.reg[2]))
+
+	factors = []
+	for i in range(1, int(math.sqrt(target) + 1)):
+		if target % i == 0:
+			factors.append(i)
+			factors.append(target / i)
+			log.info(str(i))
+			log.info(str(target / i))
+	log.success(sum(factors))
+
 
 
 if __name__ == "__main__":
