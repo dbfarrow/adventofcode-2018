@@ -157,8 +157,17 @@ def do_partB():
 			first = False
 			target = cpu.reg[2]
 			
+	# 
+	# When we see instruction #2 we are at the start of the 
+	# loops. If you let the program run, it's gonna take
+	# five-ever. Which is one more than for-ever. So, instead
+	# we need to reverse the machine code to undertand what
+	# the program is doing and see if we can implement it 
+	# faster. In this case the program calculates the factors
+	# of the target number - which is held in register #2 after
+	# the initialization phase.
+	#
 	log.info("factoring: {}".format(cpu.reg[2]))
-
 	factors = []
 	for i in range(1, int(math.sqrt(target) + 1)):
 		if target % i == 0:
