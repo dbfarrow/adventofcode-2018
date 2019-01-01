@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 
 from pwn import *
+from graph import *
 
 class Field:
 
-	def __init__(self, lines):
+	def __init__(self, filename, lines, headless=False):
 
 		# set up the field of action and 
 		# the progress indicators we will be using to 
 		# animate the game play
 		self.rows = []
 		self.players = {}
-		self.positions = []
-		self.order = None
 		self.screen = []
+		self.headless = headless
+		self.current = None
 
 		# create the visual screen elements. Each row of the
 		# field is represented by a progress bar that will be updated
@@ -22,7 +23,8 @@ class Field:
 		# and store them in a separate list
 		for y, l in enumerate(lines):
 			l = l.rstrip()
-			self.screen.append(log.progress(""))
+			if not headless:
+				self.screen.append(log.progress(filename))
 			row = []
 			for x, c in enumerate(l):
 				square = Square(x, y, c)
@@ -35,43 +37,104 @@ class Field:
 	
 			self.rows.append(row)
 				
+		self.h = len(self.rows)
+		self.w = len(self.rows[0])
 
-	''' Stateful list of players in the order they must take their turn 
-		in the current round. When the self.order is empty, a new round
-		is starting. It is populated with the list of living players
-		sorted in reading order. Players continue to move in this order
-		even if a move by another player within the round changes the 
-		reading order of the players. '''
-	''' TODO - verify that play continues in the same order even if 
-		a move changes the order '''
-	def next_player(self):
-			
-		if self.order == None:
-			# make a copy of the players list so that changes to it don't affect play order
-			self.positions = dict(self.players) 
-			self.order = sorted(self.positions.keys(), cmp=compare_positions)
+	def set_ap(self, t, ap):
+		
+		for p in self.players.values():
+			if p.t == t:
+				p.ap = ap
 
-		if len(self.order) == 0:
-			self.order = None
-			self.positions = None
+	def next_player(self, turn):
+		
+		ps = [ p for p in self.players.values() if p.turn < turn ]
+		if len(ps) == 0:
 			return None
 		else:
-			n = self.order[0]
-			del self.order[0]
-			return self.positions[n]
+			ps.sort(cmp=compare_reading_order)
+			pn = ps[0]
+			pn.turn = turn
+			return pn
 
 	def get_square(self, x, y):
-		return self.rows[y][x]
+		try:
+			if (x,y) in self.players:
+				return self.players[(x,y)]
+			else:
+				return self.rows[y][x]
+		except:
+			log.failure("x,y     = %d,%d", x, y)
+			log.failure("players = %s", self.players)
+			player = (x,y) in self.players
+			log.failure("player  = %s", foo)
+			exit(-1)
+
+	def get_move(self, p):
+
+		# get the list of nodes that could be the next move
+		next_moves = [ n for n in self.get_neighbors(p) if n.t == '.' ]
+		log.debug("current player    = %s", p)
+		log.debug("possible moves    = %s", next_moves)
+
+		ts = self.select_target(p)
+		if ts:
+			log.debug("%s won't move, attacking: %s", p, ts)
+			return None
+
+		# then find all the positions adjacent to any enemy
+		aps=[]
+		ts = [ t for t in self.players.values() if t.is_player() and p.t != t.t ]
+		for t in ts:
+			aps.extend([ n for n in self.get_neighbors(t) if n.t == '.' ])
+		log.debug("enemy players      = %s", ts)
+		log.debug("adjacent positions = %s", aps)
+	
+		# for each of the nodes that could be the next move, determine
+		# the shortest path from that node to each of the positions
+		# adjacent to a target
+		paths = []
+		for n in next_moves:
+	
+			# if the move puts us into a position adjacent to the enemy
+			# then it's a good move
+			if n in aps:
+				nn = Node(n)
+				nn.distance = 0
+				paths.append((n, 0, nn))
+			else:
+				g = Graph(self, p, n, aps)
+				paths.extend([ (n, p.distance, p) for p in g.paths ])
+
+		if len(paths) == 0:
+			log.debug("no paths exist to targets")
+			return None
+
+		min_d = min([ x[1] for x in paths ])
+		min_paths = [ p for p in paths if p[1] == min_d ]	
+		moves = sorted(min_paths, cmp=compare_reading_order, key=lambda x: x[0])
+		
+		for mp in moves:
+			log.debug("%d,%d: %d %d,%d", mp[0].x, mp[0].y, mp[1], mp[2].x, mp[2].y)
+
+		if len(moves) > 0:
+			m = moves[0][0]
+			if m in self.players.keys():
+				raise Exception ("can't move on top of another player")
+			else:	
+				return m
+		else:
+			return None
 
 	''' Removes from the active player list any players whose hit points
 		have dropped to zero or below. 
 		The function returns False if both teams still have players alive. '''
-	def harvest_the_dead(self):
+	def harvest_the_dead(self, turn):
 
 		for p in self.players.values():
 			if p.hp <= 0:
 				del self.players[(p.x, p.y)]
-				log.info("%s is dead and has been carted away", p)
+				log.debug("%s is dead and has been carted away", p)
 		
 		elves = [ p for p in self.players.values() if p.t == 'E' ]
 		goblins = [ p for p in self.players.values() if p.t == 'G' ]
@@ -80,19 +143,6 @@ class Field:
 		# True to indicate that the battle is over
 		return len(elves) == 0 or len(goblins) == 0
 
-	''' Finds all players on the board that are of the opposing type
-		from the player passed in. The list of targets is sorted in 
-		reading order relative to the entire board '''
-	def find_targets(self, player):
-
-		targets = []
-		for p in self.players.values():
-			if p.is_player() and p.t != player.t:
-				targets.append(p)
-
-		# TODO - sort by reading order
-		return targets
-			
 	''' Finds all squares adjacent to target players that can be
 		occupied by the player passed in. This list will be used
 		as an input to the shorted path algorithm. The list of
@@ -100,18 +150,9 @@ class Field:
 	def find_attack_positions(self, player):
 
 		positions = []
-
-		#target = None
-		#min_d = 0xffff
-		
-		#if player.t == 'E':
-			#context.log_level = 'debug'
-
 		log.debug("getting attack positions for: %s", (player.x, player.y))
-		#log.debug("  choosing from: %s", self.players.values())
 
-		#for p in self.players.values():
-		targets = self.find_targets(player)
+		targets = [ t for t in self.players.values() if t.is_player() and t.t != player.t ]
 		for t in targets:
 
 			adjacencies = [ (0,-1), (-1,0), (1,0), (0,1) ]
@@ -123,48 +164,6 @@ class Field:
 				if a.t in '.?' and not op:
 					log.debug("found: %s", a)
 					positions.append(a)
-	
-			#if p.x == player.x and p.y == player.y:
-				#log.debug("skipping %s", p)
-				#continue
-			#if p.t == player.t:
-				#log.debug("skipping %s", p)
-				#continue
-
-			#d = abs(p.x - player.x) + abs(p.y - player.y)
-			#if d < min_d:
-				#target = p
-				#min_d = d
-				#log.debug("setting target %s with d=%d", target, d)
-			#elif d == min_d:
-				#log.debug("choosing between: target:%d,%d and p=%d,%d", target.x, target.y, p.x, p.y)
-				#if p.y < target.y:
-					#log.debug("p has smaller y: %s", p)
-					#log.debug("target=%s", target)
-					#target = p
-				#elif p.y == target.y and p.x < target.x:
-					#log.debug("p has smaller x: %s", p)
-					#log.debug("p.y=%d, target.y=%d", p.y, target.y)
-					#log.debug("target=%s", target)
-					#target = p
-				#else:
-					#log.debug("skipping: %s", p)
-			#else:
-				#log.debug("%s too far away: %d", p, d)
-
-		#if player.t == 'E':
-			#context.log_level = 'info'
-
-		#log.debug("best target for %s: %s,%s; distance=%d", player, target.x, target.y, d)
-
-		#positions = []
-		#if target:
-			#adjacencies = [ (0,-1), (1,0), (0,1), (-1,0) ]
-			#for adj in adjacencies:
-				#a = self.get_square(target.x+adj[0], target.y+adj[1])
-				#if a.t in '.?' and op != None:
-					#log.debug("found: %s", a)
-					#positions.append(a)
 	
 		return positions
 
@@ -189,8 +188,13 @@ class Field:
 
 		if len(in_range) > 1:
 			# sort them in reading order
-			in_range.sort(cmp=compare_reading_order)
-			return in_range[0]
+			min_hp = min([ x.hp for x in in_range ])
+			weakest = [ x for x in in_range if x.hp == min_hp ]
+			if len(weakest) > 1:
+				weakest.sort(cmp=compare_reading_order)
+				return weakest[0]
+			else:
+				return weakest[0]
 		elif len(in_range) == 1:
 			return in_range[0]
 		else:
@@ -200,20 +204,9 @@ class Field:
 	def get_neighbors(self, node):
 
 		#log.debug("getting neighbors for: {}".format((node.x, node.y)))
-		#adjacencies = [ (0, -1), (0, 1), (1,0), (-1,0) ]
-		#adjacencies = [ (0, -1), (1, 0), (0, 1), (-1,0) ]
-		adjacencies = [ (-1, 0), (1, 0), (0, -1), (0, 1) ]
-		x = node.x
-		y = node.y
-		neighbors = []
-
-		for adj in adjacencies:
-			a = self.get_square(x+adj[0], y+adj[1])
-			op = self.players[(x+adj[0],y+adj[1])] if (x+adj[0], y+adj[1]) in self.players else None
-			if a.t in '.?' and (op == None or op.t != node.t):
-				#log.info("found: {}: {}".format((a.x, a.y), a.t))
-				neighbors.append(a)
-
+		adjacencies = map(lambda x: (node.x+x[0], node.y+x[1]), [ (-1, 0), (1, 0), (0, -1), (0, 1) ])
+		inbounds = [ a for a in adjacencies if a[0] >= 0 and a[0] < self.w and a[1] >= 0 and a[1] < self.h ]
+		neighbors = [ self.get_square(x[0], x[1]) for x in inbounds ]
 		return neighbors
 
 	def move(self, node, new_pos):
@@ -232,6 +225,9 @@ class Field:
 			return None
 
 	def render(self):
+
+		if self.headless:
+			return
 
 		colors = {
 			'G': '\033[31m',
@@ -269,16 +265,7 @@ class Field:
 				# bold it if it's the current player
 				if c.current:
 					m += bold
-
-				# bold it if it's a targert of the current player
-				if current and (c in current.targets):	
-					m += bold
-
-				# if it's in range, change the character to display
-				if current and ((x,y) in current.in_range):
-					m += '?'
-				else:
-					m += t 
+				m += t 
 	
 				# and turn off the color
 				m += nocolor
@@ -313,17 +300,20 @@ class Square:
 		self.x = x
 		self.y = y
 		self.t = t
-		self.name = ""
+		self.name = None
 
 		self.current = False
 
 		if self.is_player:
-			self.hp = 300
+			self.hp = 200
 			self.ap = 3
+			self.turn = -1
 
 	def __repr__(self):
 		
-		m = "{}{}({:02d},{:02d}) hp={}".format('*' if self.current else ' ', self.name, self.x, self.y, self.hp)
+		m = "{}{}({:02d},{:02d})".format('*' if self.current else ' ', self.name if self.name else self.t, self.x, self.y)
+		if self.t in [ 'E', 'G' ]:
+			m += " hp={}".format(self.hp)
 		return m
 
 	def is_player(self):
@@ -333,12 +323,8 @@ class Square:
 		if self.is_player == False:
 			raise Exception("non pieces don't have turns")
 		self.current = True
-		self.targets = []
-		self.in_range = []
 
 	def end_turn(self):
 		if self.is_player == False:
 			raise Exception("non pieces don't have turns")
 		self.current = False
-		self.targets = None
-		self.in_range = None
