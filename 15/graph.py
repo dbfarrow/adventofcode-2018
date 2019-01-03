@@ -22,8 +22,18 @@ class Graph:
 		terminal_nodes = [ (e.x, e.y) for e in ends ]
 		#log.debug("terminal nodes: %s", terminal_nodes)
 
+		min_distance = None
+
 		while (len(self.unvisited) > 0):
 
+			# Once we find a path to a target, then any node we search
+			# that is farther away is, by definition, not a shortest path.
+			# So we can stop looking
+			if min_distance == None and len(self.paths) > 0:
+				min_distance = self.paths[0].distance
+			if min_distance and (min([ u.distance for u in self.unvisited ]) > min_distance):
+				return
+	
 			#log.debug("%d: unvisited: %s", step, self.unvisited)
 
 			# get the next unvisited node. The docs suggest

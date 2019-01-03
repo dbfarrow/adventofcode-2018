@@ -10,9 +10,10 @@ class Field:
 		# set up the field of action and 
 		# the progress indicators we will be using to 
 		# animate the game play
+		self.filename = filename
 		self.rows = []
 		self.players = {}
-		self.screen = []
+		self.screen = None
 		self.headless = headless
 		self.current = None
 
@@ -23,8 +24,6 @@ class Field:
 		# and store them in a separate list
 		for y, l in enumerate(lines):
 			l = l.rstrip()
-			if not headless:
-				self.screen.append(log.progress(filename))
 			row = []
 			for x, c in enumerate(l):
 				square = Square(x, y, c)
@@ -110,15 +109,25 @@ class Field:
 			log.debug("no paths exist to targets")
 			return None
 
+		# find the shortest paths
 		min_d = min([ x[1] for x in paths ])
 		min_paths = [ p for p in paths if p[1] == min_d ]	
-		moves = sorted(min_paths, cmp=compare_reading_order, key=lambda x: x[0])
+
+		# if there are multiple enemies that are equally close, 
+		# find the first taget in reading order and then the first
+		# move in reading order that leads to that target
+		if len(min_paths) > 1:
+			min_paths.sort(cmp=compare_reading_order, key=lambda x: x[2])
+			target = min_paths[0][2]
+			min_paths = [ p for p in min_paths if p[2].x == target.x and p[2].y == target.y]
+			min_paths.sort(cmp=compare_reading_order, key=lambda x: x[0])
+	
 		
-		for mp in moves:
+		for mp in min_paths:
 			log.debug("%d,%d: %d %d,%d", mp[0].x, mp[0].y, mp[1], mp[2].x, mp[2].y)
 
-		if len(moves) > 0:
-			m = moves[0][0]
+		if len(min_paths) > 0:
+			m = min_paths[0][0]
 			if m in self.players.keys():
 				raise Exception ("can't move on top of another player")
 			else:	
@@ -228,6 +237,10 @@ class Field:
 
 		if self.headless:
 			return
+	
+		if self.screen == None:	
+			self.screen = [ log.progress(self.filename) for r in self.rows ]
+		
 
 		colors = {
 			'G': '\033[31m',
@@ -284,14 +297,6 @@ def compare_reading_order(a, b):
 		return a.x - b.x
 	else:
 		return 0
-
-def compare_positions(a, b):
-	if a[1] != b[1]:
-		return a[1] - b[1]
-	else:
-		return a[0] - b[0]
-
-
 
 class Square:
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import argparse
 from pwn import *
 import time
@@ -61,15 +62,15 @@ def play_game(field):
 	turn = 0
 	with log.progress("turn") as tp:
 
-		tp.status("start of turn: %d", turn)
 		while 1:
 		
+			tp.status("start of turn: %d", turn + 1)
 			p = field.next_player(turn)
 			if p == None:
-				tp.status("end of turn: %d", turn)
+				tp.status("end of turn: %d", turn + 1)
 				turn += 1
 
-				if CMDLINE.confirm_turn and confirm_step() == False:
+				if CMDLINE.confirm_turn and confirm_step(field, turn, None) == False:
 					return	
 				continue
 
@@ -78,12 +79,14 @@ def play_game(field):
 			field.current = p
 			field.render()
 
-			if CMDLINE.confirm_move and confirm_step() == False:
+			if CMDLINE.confirm_move and confirm_step(field, turn, p) == False:
 				return
 
 			# determine the next move. the get_move functions won't
 			# return a move if the player is in range of someone
 			# he can fight
+			#if turn == 16 and p.name == 'G-4':
+				#context.log_level = 'debug'
 			move = field.get_move(p)
 			if move:
 				field.move(p, move)
@@ -123,19 +126,32 @@ def play_game(field):
 	return (None, None, None)
 
 old_level = 'info'
-def confirm_step():
+confirm_prompt = None
+
+def confirm_step(field, turn, player):
 
 	global old_level
+	global confirm_prompt
 
+	if confirm_prompt == None:
+		confirm_prompt = log.progress("")
 	#if turn in [ 0, 1, 2, 23, 24, 25, 26, 27, 28, 47, 48 ]:
-	#if turn in [ 36, 37 ]:
-	a = raw_input("hit enter to continue; q to quit; d to enable debugging: ")
+	#if turn not in range(15, 30):
+	#if turn not in [ 20, 25, 30, 35, 40, 45 ]:
+		#return
+
+	#CMDLINE.headless = False
+	#field.headless = False
+
+	confirm_prompt.status("hit enter to continue; q to quit; d to enable debugging: ")
+	a = sys.stdin.read(1)
 	if a.rstrip() == 'q':
 		return False
 	elif a.rstrip() == 'd':
 		old_level = context.log_level
 		context.log_level = 'debug'
-		
+	confirm_prompt.status("")
+	
 	return True
 
 def check_results(game, team, turn, total_hp, ap):
@@ -188,9 +204,6 @@ def do_partA():
 			log.info("this is not a drill...")
 
 		field = get_input()
-		for p in field.players.values():
-			if p.t == 'E':
-				p.ap = 34
 		team, turn, total_hp = play_game(field)
 
 		log.info("the battle is over")
