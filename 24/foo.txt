@@ -1,0 +1,64 @@
+[*] AdventOfCode 2018 - day 24 part A
+[*] current army: Immune System
+[*] current army: Infection
+[*] targt selection order:
+[*]   Infection 1: ep:92916, inititive: 1
+[*]   Immune System 1: ep:76619, inititive: 2
+[*]   Infection 2: ep:53820, inititive: 4
+[*]   Immune System 2: ep:24725, inititive: 3
+[*] 
+[*] Infection 2 attacks Immune System 2 killing 84 units (damage: 107640, hp: 1274)
+[*] Immune System 2 attacks Infection 1 killing 4 units (damage: 22625, hp: 4706)
+[*] Immune System 1 attacks Infection 2 killing 51 units (damage: 153238, hp: 2961)
+[*] Infection 1 attacks Immune System 1 killing 17 units (damage: 184904, hp: 5390)
+[*] 
+[*] armies: set(['Infection', 'Immune System'])
+[*] targt selection order:
+[*]   Infection 1: ep:92452, inititive: 1
+[*]   Infection 2: ep:53208, inititive: 4
+[*]   Immune System 2: ep:22625, inititive: 3
+[*]   Immune System 1: ep:0, inititive: 2
+[*] 
+[*] Infection 2 attacks Immune System 2 killing 83 units (damage: 106416, hp: 1274)
+[*] Immune System 2 attacks Infection 1 killing 4 units (damage: 20550, hp: 4706)
+[*] Infection 1 attacks Immune System 2 killing 144 units (damage: 183976, hp: 1274)
+[*] 
+[*] armies: set(['Infection', 'Immune System'])
+[*] targt selection order:
+[*]   Infection 1: ep:91988, inititive: 1
+[*]   Infection 2: ep:53208, inititive: 4
+[*]   Immune System 2: ep:16950, inititive: 3
+[*]   Immune System 1: ep:0, inititive: 2
+[*] 
+[*] Infection 2 attacks Immune System 2 killing 83 units (damage: 106416, hp: 1274)
+[*] Immune System 2 attacks Infection 1 killing 3 units (damage: 14875, hp: 4706)
+[*] Infection 1 attacks Immune System 2 killing 143 units (damage: 183280, hp: 1274)
+[*] 
+[*] armies: set(['Infection', 'Immune System'])
+[*] targt selection order:
+[*]   Infection 1: ep:91640, inititive: 1
+[*]   Infection 2: ep:53208, inititive: 4
+[*]   Immune System 2: ep:11300, inititive: 3
+[*]   Immune System 1: ep:0, inititive: 2
+[*] 
+[*] Infection 2 attacks Immune System 2 killing 83 units (damage: 106416, hp: 1274)
+[*] Immune System 2 attacks Infection 1 killing 1 units (damage: 9225, hp: 4706)
+[*] Infection 1 attacks Immune System 2 killing 143 units (damage: 183048, hp: 1274)
+[*] 
+[*] armies: set(['Infection', 'Immune System'])
+[*] targt selection order:
+[*]   Infection 1: ep:91524, inititive: 1
+[*]   Infection 2: ep:53208, inititive: 4
+[*]   Immune System 2: ep:5650, inititive: 3
+[*]   Immune System 1: ep:0, inititive: 2
+[*] 
+[*] Infection 2 attacks Immune System 2 killing 83 units (damage: 106416, hp: 1274)
+[*] Immune System 2 attacks Infection 1 killing 0 units (damage: 3575, hp: 4706)
+[*] Infection 1 attacks Immune System 2 killing 143 units (damage: 183048, hp: 1274)
+[*] 
+[*] armies: set(['Infection'])
+[*] Infection 1: 789
+[*] Infection 2: 4434
+[*] Immune System 2: 0
+[*] Immune System 1: 0
+[+] 5223
